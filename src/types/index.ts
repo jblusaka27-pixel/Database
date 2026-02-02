@@ -1,15 +1,13 @@
 export interface Depot {
   id: string;
   name: string;
-  location: string;
-  is_active: boolean;
   created_at: string;
 }
 
 export interface CrateType {
   id: string;
   name: string;
-  description: string | null;
+  sort_order: number;
   created_at: string;
 }
 

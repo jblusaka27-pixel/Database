@@ -25,8 +25,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const loadInitialData = async () => {
     try {
       const [depotsRes, crateTypesRes] = await Promise.all([
-        supabase.from('depots').select('*').eq('is_active', true).order('name'),
-        supabase.from('crate_types').select('*').order('name'),
+        supabase.from('depots').select('*').order('name'),
+        supabase.from('crate_types').select('*').order('sort_order'),
       ]);
 
       if (depotsRes.data) {
