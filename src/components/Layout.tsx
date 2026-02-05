@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { Package, Home, ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, ClipboardList, FileText, Menu, X } from 'lucide-react';
+import { Package, Home, Users, BookOpen, ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, ClipboardList, FileText, Menu, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface LayoutProps {
@@ -10,6 +10,8 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Dashboard', icon: Home, page: 'dashboard' },
+  { name: 'Customers', icon: Users, page: 'customers' },
+  { name: 'Ledger', icon: BookOpen, page: 'ledger' },
   { name: 'Daily Closing', icon: ClipboardList, page: 'daily-closing' },
   { name: 'Incoming', icon: ArrowDownCircle, page: 'incoming' },
   { name: 'Outgoing', icon: ArrowUpCircle, page: 'outgoing' },

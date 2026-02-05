@@ -7,6 +7,8 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { supabase } from '../lib/supabase';
 import { calculateCurrentBalance } from '../utils/calculations';
+import { getCustomerBalance } from '../utils/customerBalance';
+import { Customer, CustomerLedgerTransaction } from '../types';
 
 interface ReportData {
   crateTypeName: string;
@@ -18,6 +20,12 @@ interface ReportData {
   closingBalance: number;
 }
 
+interface CustomerReportData {
+  customerName: string;
+  crateTypeName: string;
+  balance: number;
+}
+
 const DATE_RANGES = [
   { value: 'today', label: 'Today' },
   { value: 'last7days', label: 'Last 7 Days' },
@@ -27,11 +35,13 @@ const DATE_RANGES = [
 
 export const Reports = () => {
   const { selectedDepot, depots, crateTypes } = useApp();
+  const [reportType, setReportType] = useState<'depot' | 'customer'>('depot');
   const [reportDepotId, setReportDepotId] = useState('');
   const [dateRange, setDateRange] = useState('today');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState<ReportData[]>([]);
+  const [customerReportData, setCustomerReportData] = useState<CustomerReportData[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
 
   const calculateDateRange = () => {
@@ -60,6 +70,15 @@ export const Reports = () => {
   const generateReport = async () => {
     const depotId = reportDepotId || selectedDepot?.id;
     if (!depotId) return;
+
+    if (reportType === 'depot') {
+      generateDepotReport(depotId);
+    } else {
+      generateCustomerReport(depotId);
+    }
+  };
+
+  const generateDepotReport = async (depotId: string) => {
     try {
       const dates = calculateDateRange();
       const dayBefore = new Date(dates.start);
@@ -91,6 +110,35 @@ export const Reports = () => {
       });
       const results = await Promise.all(reportPromises);
       setReportData(results);
+      setHasGenerated(true);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const generateCustomerReport = async (depotId: string) => {
+    try {
+      const { data: customers, error: custError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('depot_id', depotId)
+        .eq('status', 'active');
+
+      if (custError || !customers) return;
+
+      const reportData: CustomerReportData[] = [];
+      for (const customer of customers) {
+        for (const crateType of crateTypes) {
+          const balance = await getCustomerBalance(customer.id, crateType.id);
+          reportData.push({
+            customerName: customer.name,
+            crateTypeName: crateType.name,
+            balance,
+          });
+        }
+      }
+
+      setCustomerReportData(reportData);
       setHasGenerated(true);
     } catch (error) {
       console.error('Error:', error);
@@ -134,7 +182,31 @@ export const Reports = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reports</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reports</h1>
+        <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+          <button
+            onClick={() => setReportType('depot')}
+            className={`px-4 py-2 rounded transition-colors ${
+              reportType === 'depot'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            Depot Reports
+          </button>
+          <button
+            onClick={() => setReportType('customer')}
+            className={`px-4 py-2 rounded transition-colors ${
+              reportType === 'customer'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            Customer Ledger
+          </button>
+        </div>
+      </div>
       <Card>
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -157,45 +229,74 @@ export const Reports = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">Results</h3>
-              <Button variant="secondary" onClick={exportToCSV}><FileDown className="w-4 h-4 mr-2" />Export CSV</Button>
+              {reportType === 'depot' && (
+                <Button variant="secondary" onClick={exportToCSV} icon={<FileDown className="w-4 h-4" />}>
+                  Export CSV
+                </Button>
+              )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium">Crate Type</th>
-                    <th className="px-4 py-3 text-right font-medium">Opening</th>
-                    <th className="px-4 py-3 text-right font-medium">Incoming</th>
-                    <th className="px-4 py-3 text-right font-medium">Outgoing</th>
-                    <th className="px-4 py-3 text-right font-medium">Trans In</th>
-                    <th className="px-4 py-3 text-right font-medium">Trans Out</th>
-                    <th className="px-4 py-3 text-right font-medium">Closing</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {reportData.map((row) => (
-                    <tr key={row.crateTypeName} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                      <td className="px-4 py-3 font-medium">{row.crateTypeName}</td>
-                      <td className="px-4 py-3 text-right">{row.openingBalance}</td>
-                      <td className="px-4 py-3 text-right text-green-600">+{row.incoming}</td>
-                      <td className="px-4 py-3 text-right text-red-600">-{row.outgoing}</td>
-                      <td className="px-4 py-3 text-right text-teal-600">+{row.transfersIn}</td>
-                      <td className="px-4 py-3 text-right text-orange-600">-{row.transfersOut}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{row.closingBalance}</td>
+            {reportType === 'depot' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Crate Type</th>
+                      <th className="px-4 py-3 text-right font-medium">Opening</th>
+                      <th className="px-4 py-3 text-right font-medium">Incoming</th>
+                      <th className="px-4 py-3 text-right font-medium">Outgoing</th>
+                      <th className="px-4 py-3 text-right font-medium">Trans In</th>
+                      <th className="px-4 py-3 text-right font-medium">Trans Out</th>
+                      <th className="px-4 py-3 text-right font-medium">Closing</th>
                     </tr>
-                  ))}
-                  <tr className="bg-gray-100 dark:bg-gray-700/50 font-semibold">
-                    <td className="px-4 py-3">Total</td>
-                    <td className="px-4 py-3 text-right">{totals.openingBalance}</td>
-                    <td className="px-4 py-3 text-right text-green-600">+{totals.incoming}</td>
-                    <td className="px-4 py-3 text-right text-red-600">-{totals.outgoing}</td>
-                    <td className="px-4 py-3 text-right text-teal-600">+{totals.transfersIn}</td>
-                    <td className="px-4 py-3 text-right text-orange-600">-{totals.transfersOut}</td>
-                    <td className="px-4 py-3 text-right">{totals.closingBalance}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {reportData.map((row) => (
+                      <tr key={row.crateTypeName} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td className="px-4 py-3 font-medium">{row.crateTypeName}</td>
+                        <td className="px-4 py-3 text-right">{row.openingBalance}</td>
+                        <td className="px-4 py-3 text-right text-green-600">+{row.incoming}</td>
+                        <td className="px-4 py-3 text-right text-red-600">-{row.outgoing}</td>
+                        <td className="px-4 py-3 text-right text-teal-600">+{row.transfersIn}</td>
+                        <td className="px-4 py-3 text-right text-orange-600">-{row.transfersOut}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{row.closingBalance}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-100 dark:bg-gray-700/50 font-semibold">
+                      <td className="px-4 py-3">Total</td>
+                      <td className="px-4 py-3 text-right">{totals.openingBalance}</td>
+                      <td className="px-4 py-3 text-right text-green-600">+{totals.incoming}</td>
+                      <td className="px-4 py-3 text-right text-red-600">-{totals.outgoing}</td>
+                      <td className="px-4 py-3 text-right text-teal-600">+{totals.transfersIn}</td>
+                      <td className="px-4 py-3 text-right text-orange-600">-{totals.transfersOut}</td>
+                      <td className="px-4 py-3 text-right">{totals.closingBalance}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Customer</th>
+                      <th className="px-4 py-3 text-left font-medium">Crate Type</th>
+                      <th className="px-4 py-3 text-right font-medium">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {customerReportData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td className="px-4 py-3 font-medium">{row.customerName}</td>
+                        <td className="px-4 py-3">{row.crateTypeName}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400">
+                          {row.balance}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </Card>
       )}

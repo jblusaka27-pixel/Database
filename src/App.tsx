@@ -3,6 +3,8 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui/Loading';
 import { Dashboard } from './pages/Dashboard';
+import { Customers } from './pages/Customers';
+import { CustomerLedger } from './pages/CustomerLedger';
 import { DailyClosing } from './pages/DailyClosing';
 import { IncomingCrates } from './pages/IncomingCrates';
 import { OutgoingCrates } from './pages/OutgoingCrates';
@@ -36,6 +38,10 @@ const AppContent = () => {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'customers':
+        return <Customers />;
+      case 'ledger':
+        return <CustomerLedger />;
       case 'daily-closing':
         return <DailyClosing />;
       case 'incoming':
