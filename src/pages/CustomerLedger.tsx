@@ -53,11 +53,10 @@ export const CustomerLedger = () => {
         .from('customers')
         .select('*')
         .eq('depot_id', selectedDepot.id)
-        .eq('status', 'active')
         .order('name');
       if (!error && data) {
         setCustomers(data);
-        if (data.length > 0 && !selectedCustomer) {
+        if (data.length > 0) {
           setSelectedCustomer(data[0]);
         }
       }
@@ -170,30 +169,37 @@ export const CustomerLedger = () => {
 
       <Card>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select Customer
-            </label>
-            <div className="relative">
-              <Filter className="absolute left-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
-              <select
-                value={selectedCustomer?.id || ''}
-                onChange={(e) => {
-                  const customer = customers.find((c) => c.id === e.target.value);
-                  if (customer) setSelectedCustomer(customer);
-                }}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
+          {customers.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600 dark:text-gray-400 mb-4">No customers found for this depot.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-500">Go to Customers page to add or import customers.</p>
             </div>
-          </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Customer
+                </label>
+                <div className="relative">
+                  <Filter className="absolute left-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                  <select
+                    value={selectedCustomer?.id || ''}
+                    onChange={(e) => {
+                      const customer = customers.find((c) => c.id === e.target.value);
+                      if (customer) setSelectedCustomer(customer);
+                    }}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          {selectedCustomer && (
+              {selectedCustomer && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {crateTypes.map((type) => (
@@ -269,6 +275,8 @@ export const CustomerLedger = () => {
                   </div>
                 )}
               </div>
+            </>
+            )}
             </>
           )}
         </div>
